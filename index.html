@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECG Arrhythmia Detection Literature Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+ :root {
+ --bg: #080808;
+ --fg: #f0ece3;
+ --accent: #c8f542;
+ --muted: #4a4a4a;
+ --dim: #1a1a1a;
+ --red: #ff3f3f;
+ --mono: 'DM Mono', monospace;
+ --serif: 'Playfair Display', serif;
+ --body: 'Instrument Serif', serif;
+ }
+
+ *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+ html { scroll-behavior: smooth; }
+
+ body {
+ background: var(--bg);
+ color: var(--fg);
+ font-family: var(--body);
+ font-size: 18px;
+ line-height: 1.6;
+ overflow-x: hidden;
+ cursor: none;
+ }
+
+ /* CURSOR */
+ .cursor {
+ position: fixed;
+ width: 8px; height: 8px;
+ background: var(--accent);
+ border-radius: 50%;
+ pointer-events: none;
+ z-index: 9999;
+ transition: transform 0.15s ease;
+ mix-blend-mode: difference;
+ }
+ .cursor-ring {
+ position: fixed;
+ width: 36px; height: 36px;
+ border: 1px solid rgba(200,245,66,0.4);
+ border-radius: 50%;
+ pointer-events: none;
+ z-index: 9998;
+ transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1), width 0.3s, height 0.3s, opacity 0.3s;
+ }
+ body:hover .cursor { opacity: 1; }
+
+ /* NAV */
+ nav {
+ position: fixed; top: 0; left: 0; right: 0;
+ z-index: 100;
+ padding: 28px 60px;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ mix-blend-mode: difference;
+ }
+ .nav-brand {
+ font-family: var(--mono);
+ font-size: 11px;
+ letter-spacing: 0.2em;
+ color: var(--fg);
+ text-transform: uppercase;
+ }
+ .nav-links {
+ display: flex; gap: 40px;
+ list-style: none;
+ }
+ .nav-links a {
+ font-family: var(--mono);
+ font-size: 10px;
+ letter-spacing: 0.15em;
+ text-transform: uppercase;
+ color: rgba(240,236,227,0.5);
+ text-decoration: none;
+ transition: color 0.3s;
+ }
+ .nav-links a:hover { color: var(--fg); }
+
+ /* HERO */
+ .hero {
+ min-height: 100vh;
+ display: grid;
+ grid-template-rows: 1fr auto;
+ padding: 0 60px 60px;
+ position: relative;
+ overflow: hidden;
+ }
+
+ .hero-bg {
+ position: absolute; inset: 0;
+ background: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(200,245,66,0.04) 0%, transparent 70%),
+ radial-gradient(ellipse 40% 40% at 20% 80%, rgba(255,63,63,0.03) 0%, transparent 60%);
+ }
+
+ /* ECG Line SVG animation */
+ .ecg-bg {
+ position: absolute;
+ bottom: 0; left: 0; right: 0;
+ height: 200px;
+ opacity: 0.06;
+ overflow: hidden;
+ }
+ .ecg-line {
+ stroke: var(--accent);
+ stroke-width: 1.5;
+ fill: none;
+ stroke-dasharray: 2000;
+ stroke-dashoffset: 2000;
+ animation: drawLine 4s ease forwards 0.5s;
+ }
+ @keyframes drawLine {
+ to { stroke-dashoffset: 0; }
+ }
+
+ .hero-content {
+ display: flex;
+ flex-direction: column;
+ justify-content: flex-end;
+ padding-top: 120px;
+ position: relative;
+ z-index: 2;
+ }
+
+ .hero-label {
+ font-family: var(--mono);
+ font-size: 10px;
+ letter-spacing: 0.3em;
+ text-transform: uppercase;
+ color: var(--accent);
+ margin-bottom: 32px;
+ opacity: 0;
+ animation: fadeUp 0.8s ease forwards 0.3s;
+ }
+
+ .hero-title {
+ font-family: var(--serif);
+ font-size: clamp(52px, 9vw, 140px);
+ font-weight: 900;
+ line-height: 0.9;
+ letter-spacing: -0.03em;
+ opacity: 0;
+ animation: fadeUp 0.9s ease forwards 0.5s;
+ }
+
+ .hero-title em {
+ font-style: italic;
+ color: rgba(240,236,227,0.35);
+ }
+
+ .hero-meta {
+ margin-top: 60px;
+ display: flex;
+ gap: 60px;
+ align-items: flex-end;
+ opacity: 0;
+ animation: fadeUp 0.9s ease forwards 0.8s;
+ }
+
+ .hero-meta-block {
+ display: flex;
+ flex-direction: column;
+ gap: 6px;
+ }
+
+ .hero-meta-label {
+ font-family: var(--mono);
+ font-size: 9px;
+ letter-spacing: 0.2em;
+ text-transform: uppercase;
+ color: var(--muted);
+ }
+
+ .hero-meta-value {
+ font-family: var(--body);
+ font-size: 15px;
+ color: var(--fg);
+ }
+
+ .hero-scroll {
+ position: absolute;
+ right: 60px;
+ bottom: 60px;
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ gap: 12px;
+ opacity: 0;
+ animation: fadeUp 1s ease forwards 1.2s;
+ }
+ .hero-scroll span {
+ font-family: var(--mono);
+ font-size: 9px;
+ letter-spacing: 0.25em;
+ text-transform: uppercase;
+ color: var(--muted);
+ writing-mode: vertical-rl;
+ }
+ .hero-scroll-line {
+ width: 1px;
+ height: 80px;
+ background: linear-gradient(to bottom, var(--accent), transparent);
+ animation: scrollPulse 2s ease-in-out infinite 1.5s;
+ }
+ @keyframes scrollPulse {
+ 0%, 100% { opacity: 0.3; transform: scaleY(1); }
+ 50% { opacity: 1; transform: scaleY(1.1); }
+ }
+
+ @keyframes fadeUp {
+ from { opacity: 0; transform: translateY(30px); }
+ to { opacity: 1; transform: translateY(0); }
+ }
+
+ /* DIVIDER */
+ .divider {
+ width: 100%;
+ height: 1px;
+ background: linear-gradient(to right, transparent, var(--muted), transparent);
+ opacity: 0.3;
+ }
+
+ /* SECTION BASE */
+ section {
+ padding: 120px 60px;
+ position: relative;
+ }
+
+ .section-num {
+ font-family: var(--mono);
+ font-size: 10px;
+ letter-spacing: 0.2em;
+ color: var(--accent);
+ text-transform: uppercase;
+ margin-bottom: 60px;
+ display: flex;
+ align-items: center;
+ gap: 20px;
+ }
+ .section-num::after {
+ content: '';
+ display: block;
+ flex: 1;
+ height: 1px;
+ background: var(--muted);
+ opacity: 0.3;
+ max-width: 80px;
+ }
+
+ .section-title {
+ font-family: var(--serif);
+ font-size: clamp(36px, 5vw, 72px);
+ font-weight: 700;
+ line-height: 1.05;
+ letter-spacing: -0.02em;
+ margin-bottom: 60px;
+ }
+
+ /* PROBLEM SECTION */
+ .problem-grid {
+ display: grid;
+ grid-template-columns: 1fr 1fr;
+ gap: 80px;
+ align-items: start;
+ }
+
+ .problem-text p {
+ font-size: 19px;
+ line-height: 1.75;
+ color: rgba(240,236,227,0.75);
+ margin-bottom: 24px;
+ }
+
+ .stat-block {
+ display: flex;
+ flex-direction: column;
+ gap: 40px;
+ }
+
+ .stat-item {
+ border-top: 1px solid rgba(255,255,255,0.08);
+ padding-top: 28px;
+ }
+
+ .stat-number {
+ font-family: var(--serif);
+ font-size: 64px;
+ font-weight: 900;
+ line-height: 1;
+ color: var(--accent);
+ letter-spacing: -0.03em;
+ }
+
+ .stat-label {
+ font-family: var(--mono);
+ font-size: 11px;
+ letter-spacing: 0.15em;
+ text-transform: uppercase;
+ color: var(--muted);
+ margin-top: 8px;
+ }
+
+ /* ARRHYTHMIA CARDS */
+ .cards-grid {
+ display: grid;
+ grid-template-columns: repeat(5, 1fr);
+ gap: 2px;
+ margin-top: 60px;
+ }
+
+ .card {
+ background: var(--dim);
+ padding: 40px 28px;
+ position: relative;
+ overflow: hidden;
+ transition: background 0.4s ease;
+ cursor: none;
+ }
+
+ .card::before {
+ content: '';
+ position: absolute;
+ top: 0; left: 0; right: 0;
+ height: 2px;
+ background: var(--accent);
+ transform: scaleX(0);
+ transform-origin: left;
+ transition: transform 0.4s ease;
+ }
+
+ .card:hover { background: #141414; }
+ .card:hover::before { transform: scaleX(1); }
+
+ .card-index {
+ font-family: var(--mono);
+ font-size: 10px;
+ color: var(--muted);
+ letter-spacing: 0.1em;
+ margin-bottom: 24px;
+ }
+
+ .card-type {
+ font-family: var(--mono);
+ font-size: 11px;
+ letter-spacing: 0.15em;
+ text-transform: uppercase;
+ color: var(--accent);
+ margin-bottom: 12px;
+ }
+
+ .card-name {
+ font-family: var(--serif);
+ font-size: 22px;
+ font-weight: 700;
+ line-height: 1.2;
+ margin-bottom: 20px;
+ }
+
+ .card-desc {
+ font-size: 13px;
+ line-height: 1.6;
+ color: rgba(240,236,227,0.5);
+ }
+
+ /* ECG WAVE MINI */
+ .card-wave {
+ margin-top: 28px;
+ height: 40px;
+ }
+ .card-wave svg {
+ width: 100%; height: 100%;
+ overflow: visible;
+ }
+
+ /* GAPS SECTION */
+ .gaps-section { background: var(--dim); }
+
+ .gaps-list {
+ display: flex;
+ flex-direction: column;
+ gap: 0;
+ }
+
+ .gap-item {
+ display: grid;
+ grid-template-columns: 80px 1fr;
+ gap: 40px;
+ padding: 40px 0;
+ border-bottom: 1px solid rgba(255,255,255,0.06);
+ align-items: start;
+ transition: all 0.3s ease;
+ }
+
+ .gap-item:hover .gap-num { color: var(--accent); }
+
+ .gap-num {
+ font-family: var(--serif);
+ font-size: 48px;
+ font-weight: 900;
+ color: rgba(240,236,227,0.1);
+ line-height: 1;
+ transition: color 0.3s;
+ }
+
+ .gap-content h3 {
+ font-family: var(--serif);
+ font-size: 24px;
+ font-weight: 700;
+ margin-bottom: 12px;
+ }
+
+ .gap-content p {
+ font-size: 16px;
+ color: rgba(240,236,227,0.55);
+ line-height: 1.7;
+ }
+
+ /* TABLE SECTION */
+ .table-wrapper {
+ overflow-x: auto;
+ margin-top: 40px;
+ }
+
+ table {
+ width: 100%;
+ border-collapse: collapse;
+ font-size: 14px;
+ }
+
+ thead tr {
+ border-bottom: 1px solid rgba(200,245,66,0.3);
+ }
+
+ th {
+ font-family: var(--mono);
+ font-size: 9px;
+ letter-spacing: 0.2em;
+ text-transform: uppercase;
+ color: var(--accent);
+ padding: 16px 20px;
+ text-align: left;
+ font-weight: 400;
+ }
+
+ td {
+ padding: 20px;
+ border-bottom: 1px solid rgba(255,255,255,0.04);
+ color: rgba(240,236,227,0.7);
+ vertical-align: top;
+ line-height: 1.5;
+ }
+
+ tr:hover td { background: rgba(255,255,255,0.02); color: var(--fg); }
+
+ td:first-child {
+ font-family: var(--mono);
+ font-size: 12px;
+ color: var(--fg);
+ white-space: nowrap;
+ }
+
+ .perf-badge {
+ display: inline-block;
+ font-family: var(--mono);
+ font-size: 11px;
+ padding: 3px 10px;
+ border: 1px solid rgba(200,245,66,0.3);
+ color: var(--accent);
+ border-radius: 2px;
+ }
+
+ /* LIMITATIONS */
+ .limit-grid {
+ display: grid;
+ grid-template-columns: repeat(3, 1fr);
+ gap: 2px;
+ margin-top: 40px;
+ }
+
+ .limit-card {
+ background: var(--dim);
+ padding: 36px 32px;
+ position: relative;
+ }
+
+ .limit-card-author {
+ font-family: var(--mono);
+ font-size: 10px;
+ letter-spacing: 0.15em;
+ text-transform: uppercase;
+ color: var(--accent);
+ margin-bottom: 16px;
+ }
+
+ .limit-card-text {
+ font-size: 14px;
+ color: rgba(240,236,227,0.55);
+ line-height: 1.65;
+ margin-bottom: 16px;
+ }
+
+ .limit-card-impact {
+ font-family: var(--mono);
+ font-size: 11px;
+ color: rgba(255,63,63,0.7);
+ letter-spacing: 0.05em;
+ }
+
+ /* OBJECTIVES */
+ .objectives-grid {
+ display: grid;
+ grid-template-columns: 1fr 1fr;
+ gap: 60px;
+ margin-top: 40px;
+ }
+
+ .objective-item {
+ display: grid;
+ grid-template-columns: 60px 1fr;
+ gap: 24px;
+ padding: 32px 0;
+ border-top: 1px solid rgba(255,255,255,0.06);
+ align-items: start;
+ }
+
+ .objective-num {
+ font-family: var(--mono);
+ font-size: 11px;
+ color: var(--accent);
+ letter-spacing: 0.1em;
+ padding-top: 4px;
+ }
+
+ .objective-text h4 {
+ font-family: var(--serif);
+ font-size: 18px;
+ font-weight: 700;
+ margin-bottom: 10px;
+ }
+
+ .objective-text p {
+ font-size: 14px;
+ color: rgba(240,236,227,0.5);
+ line-height: 1.65;
+ }
+
+ /* HYPOTHESIS */
+ .hypothesis-section { background: #0c0c0c; }
+
+ .hyp-list {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ margin-top: 40px;
+ }
+
+ .hyp-item {
+ background: var(--dim);
+ padding: 48px;
+ display: grid;
+ grid-template-columns: 120px 1fr;
+ gap: 48px;
+ align-items: center;
+ transition: background 0.3s;
+ }
+ .hyp-item:hover { background: #161616; }
+
+ .hyp-label {
+ font-family: var(--serif);
+ font-size: 72px;
+ font-weight: 900;
+ color: rgba(200,245,66,0.12);
+ line-height: 1;
+ letter-spacing: -0.04em;
+ transition: color 0.3s;
+ }
+ .hyp-item:hover .hyp-label { color: rgba(200,245,66,0.25); }
+
+ .hyp-text {
+ font-size: 18px;
+ line-height: 1.7;
+ color: rgba(240,236,227,0.7);
+ }
+ .hyp-item:hover .hyp-text { color: var(--fg); }
+
+ /* FOOTER */
+ footer {
+ padding: 80px 60px;
+ border-top: 1px solid rgba(255,255,255,0.06);
+ display: grid;
+ grid-template-columns: 1fr 1fr;
+ gap: 60px;
+ align-items: end;
+ }
+
+ .footer-title {
+ font-family: var(--serif);
+ font-size: clamp(32px, 4vw, 60px);
+ font-weight: 900;
+ line-height: 1;
+ letter-spacing: -0.02em;
+ }
+
+ .footer-meta {
+ display: flex;
+ flex-direction: column;
+ gap: 16px;
+ align-items: flex-end;
+ }
+
+ .footer-item {
+ font-family: var(--mono);
+ font-size: 11px;
+ letter-spacing: 0.1em;
+ color: var(--muted);
+ text-transform: uppercase;
+ }
+
+ .refs-grid {
+ display: grid;
+ grid-template-columns: 1fr 1fr;
+ gap: 2px;
+ margin-top: 40px;
+ }
+
+ .ref-item {
+ background: var(--dim);
+ padding: 20px 24px;
+ font-size: 13px;
+ color: rgba(240,236,227,0.45);
+ line-height: 1.5;
+ transition: background 0.3s, color 0.3s;
+ }
+ .ref-item:hover { background: #141414; color: rgba(240,236,227,0.75); }
+ .ref-item strong {
+ display: block;
+ font-family: var(--mono);
+ font-size: 10px;
+ color: var(--accent);
+ letter-spacing: 0.1em;
+ margin-bottom: 6px;
+ }
+
+ /* REVEAL ANIMATIONS */
+ .reveal {
+ opacity: 0;
+ transform: translateY(40px);
+ transition: opacity 0.8s ease, transform 0.8s ease;
+ }
+ .reveal.visible {
+ opacity: 1;
+ transform: none;
+ }
+
+ /* MARQUEE */
+ .marquee-section {
+ padding: 0;
+ overflow: hidden;
+ border-top: 1px solid rgba(255,255,255,0.06);
+ border-bottom: 1px solid rgba(255,255,255,0.06);
+ }
+ .marquee-track {
+ display: flex;
+ white-space: nowrap;
+ animation: marquee 25s linear infinite;
+ }
+ .marquee-text {
+ font-family: var(--serif);
+ font-size: clamp(40px, 6vw, 80px);
+ font-weight: 900;
+ letter-spacing: -0.02em;
+ padding: 20px 40px 20px 0;
+ color: rgba(240,236,227,0.06);
+ flex-shrink: 0;
+ }
+ .marquee-text span {
+ color: var(--accent);
+ font-style: italic;
+ }
+ @keyframes marquee {
+ from { transform: translateX(0); }
+ to { transform: translateX(-50%); }
+ }
+
+ /* RESPONSIVE — TABLET */
+ @media (max-width: 900px) {
+ nav { padding: 24px 30px; }
+ section { padding: 80px 30px; }
+ .hero { padding: 0 30px 60px; }
+ .problem-grid, .objectives-grid { grid-template-columns: 1fr; }
+ .cards-grid { grid-template-columns: repeat(2, 1fr); }
+ .limit-grid { grid-template-columns: 1fr; }
+ .refs-grid { grid-template-columns: 1fr; }
+ footer { grid-template-columns: 1fr; }
+ .footer-meta { align-items: flex-start; }
+ .hyp-item { grid-template-columns: 1fr; }
+ .hyp-label { font-size: 48px; }
+ .nav-links { display: none; }
+ }
+
+ /* RESPONSIVE — MOBILE */
+ @media (max-width: 480px) {
+ body { cursor: auto; font-size: 16px; }
+
+ /* Hide custom cursor on touch */
+ .cursor, .cursor-ring { display: none; }
+
+ nav { padding: 20px 20px; }
+ .nav-brand { font-size: 9px; letter-spacing: 0.15em; }
+
+ section { padding: 60px 20px; }
+ .hero { padding: 0 20px 50px; min-height: 100svh; }
+ .hero-content { padding-top: 100px; }
+
+ .hero-label { font-size: 8px; letter-spacing: 0.2em; margin-bottom: 20px; }
+
+ .hero-title { font-size: clamp(38px, 12vw, 56px); line-height: 0.92; }
+
+ .hero-meta {
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 36px;
+  align-items: flex-start;
+ }
+ .hero-meta-block { flex-direction: row; gap: 12px; align-items: baseline; }
+ .hero-meta-label { font-size: 8px; }
+ .hero-meta-value { font-size: 14px; }
+
+ .hero-scroll { right: 20px; bottom: 40px; }
+ .hero-scroll-line { height: 50px; }
+
+ .section-num { font-size: 9px; margin-bottom: 32px; }
+ .section-title { font-size: clamp(28px, 9vw, 44px); margin-bottom: 36px; }
+
+ /* Problem */
+ .problem-grid { gap: 48px; }
+ .problem-text p { font-size: 16px; }
+ .stat-number { font-size: 48px; }
+ .stat-label { font-size: 10px; }
+
+ /* Arrhythmia cards — single column on mobile */
+ .cards-grid { grid-template-columns: 1fr; gap: 2px; }
+ .card { padding: 28px 20px; }
+ .card-name { font-size: 18px; }
+ .card-desc { font-size: 12px; }
+
+ /* Gaps */
+ .gap-item { grid-template-columns: 48px 1fr; gap: 20px; padding: 28px 0; }
+ .gap-num { font-size: 36px; }
+ .gap-content h3 { font-size: 18px; }
+ .gap-content p { font-size: 14px; }
+
+ /* Table — make it scrollable and readable */
+ .table-wrapper { margin-top: 28px; border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; }
+ table { font-size: 12px; min-width: 600px; }
+ th { font-size: 8px; padding: 12px 14px; }
+ td { padding: 14px; }
+ .perf-badge { font-size: 10px; padding: 2px 7px; }
+
+ /* Limitations */
+ .limit-grid { gap: 2px; }
+ .limit-card { padding: 24px 20px; }
+ .limit-card-author { font-size: 9px; }
+ .limit-card-text { font-size: 13px; }
+ .limit-card-impact { font-size: 10px; }
+
+ /* Objectives */
+ .objectives-grid { gap: 0; }
+ .objective-item { grid-template-columns: 48px 1fr; gap: 16px; padding: 24px 0; }
+ .objective-num { font-size: 10px; }
+ .objective-text h4 { font-size: 16px; }
+ .objective-text p { font-size: 13px; }
+
+ /* Hypotheses */
+ .hyp-item { padding: 28px 20px; gap: 16px; }
+ .hyp-label { font-size: 36px; }
+ .hyp-text { font-size: 15px; }
+
+ /* References */
+ .refs-grid { gap: 2px; }
+ .ref-item { padding: 16px 18px; font-size: 12px; }
+ .ref-item strong { font-size: 9px; }
+
+ /* Footer */
+ footer { padding: 50px 20px; gap: 36px; }
+ .footer-title { font-size: clamp(28px, 10vw, 44px); }
+ .footer-item { font-size: 10px; }
+
+ /* Marquee */
+ .marquee-text { font-size: clamp(28px, 8vw, 44px); padding: 14px 24px 14px 0; }
+ }
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav>
+ <div class="nav-brand">ECG // 24BVD0216</div>
+ <ul class="nav-links">
+ <li><a href="#problem">Problem</a></li>
+ <li><a href="#gaps">Gaps</a></li>
+ <li><a href="#methods">Methods</a></li>
+ <li><a href="#objectives">Objectives</a></li>
+ <li><a href="#refs">References</a></li>
+ </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+ <div class="hero-bg"></div>
+ <div class="ecg-bg">
+ <svg viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+ <path class="ecg-line" d="M0,60 L80,60 L100,60 L110,20 L120,100 L130,10 L145,100 L155,60 L280,60 L300,60 L310,20 L320,100 L330,10 L345,100 L355,60 L480,60 L500,60 L510,20 L520,100 L530,10 L545,100 L555,60 L680,60 L700,60 L710,20 L720,100 L730,10 L745,100 L755,60 L880,60 L900,60 L910,20 L920,100 L930,10 L945,100 L955,60 L1080,60 L1100,60 L1110,20 L1120,100 L1130,10 L1145,100 L1155,60 L1280,60 L1300,60 L1310,20 L1320,100 L1330,10 L1345,100 L1355,60 L1440,60"/>
+ </svg>
+ </div>
+
+ <div class="hero-content">
+ <div class="hero-label">Literature Review · Biomedical Engineering · 2024</div>
+ <h1 class="hero-title">
+ Microcontroller-Based<br>
+ <em>Real-Time</em> ECG<br>
+ Arrhythmia Detection
+ </h1>
+ <div class="hero-meta">
+ <div class="hero-meta-block">
+ <span class="hero-meta-label">Author</span>
+ <span class="hero-meta-value">Hemanya Saini</span>
+ </div>
+ <div class="hero-meta-block">
+ <span class="hero-meta-label">Student ID</span>
+ <span class="hero-meta-value">24BVD0216</span>
+ </div>
+ <div class="hero-meta-block">
+ <span class="hero-meta-label">Papers Reviewed</span>
+ <span class="hero-meta-value">20+</span>
+ </div>
+ <div class="hero-meta-block">
+ <span class="hero-meta-label">Target Platform</span>
+ <span class="hero-meta-value">STM32F407 / ESP32</span>
+ </div>
+ </div>
+ </div>
+
+ <div class="hero-scroll">
+ <div class="hero-scroll-line"></div>
+ <span>Scroll</span>
+ </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-section">
+ <div class="marquee-track">
+ <span class="marquee-text">Real-Time Detection &nbsp;<span>·</span>&nbsp; Arrhythmia Classification &nbsp;<span>·</span>&nbsp; Embedded Systems &nbsp;<span>·</span>&nbsp; MIT-BIH Database &nbsp;<span>·</span>&nbsp; Pan-Tompkins &nbsp;<span>·</span>&nbsp;</span>
+ <span class="marquee-text">Real-Time Detection &nbsp;<span>·</span>&nbsp; Arrhythmia Classification &nbsp;<span>·</span>&nbsp; Embedded Systems &nbsp;<span>·</span>&nbsp; MIT-BIH Database &nbsp;<span>·</span>&nbsp; Pan-Tompkins &nbsp;<span>·</span>&nbsp;</span>
+ </div>
+</div>
+
+<!-- PROBLEM SECTION -->
+<section id="problem">
+ <div class="section-num">01 Research Problem</div>
+ <div class="problem-grid">
+ <div class="problem-text reveal">
+ <h2 class="section-title">The Gap Between<br><em>Precision</em> and<br>Portability</h2>
+ <p>Cardiovascular diseases remain the leading cause of death globally yet ECG machines stay locked inside hospitals. If you're at home, at work, or in a village with no hospital nearby, nobody is watching your heart.</p>
+ <p>High-accuracy deep learning models require GPU-level hardware, while traditional algorithms on microcontrollers sacrifice classification breadth. The need of the hour is a system advanced enough to identify specific arrhythmias AND small enough to run on a cheap chip in real time.</p>
+ </div>
+ <div class="stat-block reveal">
+ <div class="stat-item">
+ <div class="stat-number">17.9M</div>
+ <div class="stat-label">Deaths from CVDs annually WHO 2021</div>
+ </div>
+ <div class="
